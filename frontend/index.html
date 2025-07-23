@@ -1,0 +1,1082 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DeFi Risk Market MVP</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            color: #333;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        .header {
+            text-align: center;
+            color: white;
+            margin-bottom: 30px;
+        }
+        
+        .header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+        }
+        
+        .header p {
+            font-size: 1.2rem;
+            opacity: 0.9;
+        }
+        
+        .wallet-section {
+            background: white;
+            border-radius: 12px;
+            padding: 30px;
+            margin-bottom: 30px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+        }
+        
+        .wallet-status {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        
+        .connect-button {
+            background: #4CAF50;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+        
+        .connect-button:hover {
+            background: #45a049;
+        }
+        
+        .connect-button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+        
+        .disconnect-button {
+            background: #f44336;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: background 0.3s;
+            margin-left: 10px;
+        }
+        
+        .disconnect-button:hover {
+            background: #da190b;
+        }
+        
+        .disconnect-button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+        
+        .switch-button {
+            background: #ff9800;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: background 0.3s;
+            margin-left: 10px;
+        }
+        
+        .switch-button:hover {
+            background: #f57c00;
+        }
+        
+        .switch-button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+        
+        .wallet-info {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-top: 20px;
+        }
+        
+        .info-card {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 8px;
+            border-left: 4px solid #667eea;
+        }
+        
+        .info-card h3 {
+            color: #667eea;
+            margin-bottom: 10px;
+        }
+        
+        .info-card p {
+            font-size: 1.1rem;
+            font-weight: 500;
+        }
+        
+        .market-section {
+            background: white;
+            border-radius: 12px;
+            padding: 30px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+        }
+        
+        .market-question {
+            background: #e3f2fd;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 30px;
+            border-left: 4px solid #2196F3;
+        }
+        
+        .trading-panel {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+            margin-bottom: 30px;
+        }
+        
+        .trade-card {
+            border: 2px solid #e0e0e0;
+            border-radius: 12px;
+            padding: 25px;
+            text-align: center;
+            transition: border-color 0.3s;
+        }
+        
+        .trade-card.yes {
+            border-color: #4CAF50;
+        }
+        
+        .trade-card.no {
+            border-color: #f44336;
+        }
+        
+        .trade-card h3 {
+            margin-bottom: 15px;
+            font-size: 1.5rem;
+        }
+        
+        .trade-card.yes h3 {
+            color: #4CAF50;
+        }
+        
+        .trade-card.no h3 {
+            color: #f44336;
+        }
+        
+        .input-group {
+            margin-bottom: 20px;
+        }
+        
+        .input-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 500;
+        }
+        
+        .input-group input {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-size: 1rem;
+        }
+        
+        .buy-button {
+            width: 100%;
+            padding: 12px;
+            border: none;
+            border-radius: 6px;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+        
+        .buy-button.yes {
+            background: #4CAF50;
+            color: white;
+        }
+        
+        .buy-button.no {
+            background: #f44336;
+            color: white;
+        }
+        
+        .buy-button:hover {
+            opacity: 0.9;
+        }
+        
+        .buy-button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+        
+        .market-stats {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 8px;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+        }
+        
+        .stat-item {
+            text-align: center;
+        }
+        
+        .stat-item h4 {
+            color: #666;
+            margin-bottom: 5px;
+            font-size: 0.9rem;
+            text-transform: uppercase;
+        }
+        
+        .stat-item p {
+            font-size: 1.2rem;
+            font-weight: 600;
+            color: #333;
+        }
+        
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #3498db;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .error {
+            background: #ffebee;
+            color: #c62828;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 10px 0;
+            border-left: 4px solid #c62828;
+        }
+        
+        .success {
+            background: #e8f5e8;
+            color: #2e7d32;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 10px 0;
+            border-left: 4px solid #2e7d32;
+        }
+        
+        .info {
+            background: #e3f2fd;
+            color: #1565c0;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 10px 0;
+            border-left: 4px solid #1565c0;
+        }
+        
+        .loading-message {
+            background: #fff3e0;
+            color: #e65100;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 10px 0;
+            border-left: 4px solid #ff9800;
+            display: flex;
+            align-items: center;
+        }
+        
+        .loading-message .loading {
+            margin-right: 10px;
+        }
+        
+        /* 訂單簿樣式 */
+        .orderbook-section {
+            background: white;
+            border-radius: 12px;
+            padding: 30px;
+            margin-bottom: 30px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+        }
+        
+        .orderbook-display {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+            margin-bottom: 30px;
+        }
+        
+        .orderbook-column {
+            background: #1a1d29;
+            border-radius: 12px;
+            padding: 20px;
+            color: white;
+        }
+        
+        .orderbook-column h3 {
+            color: #8b949e;
+            margin-bottom: 20px;
+            text-align: center;
+            font-weight: 500;
+        }
+        
+        .orderbook-table {
+            background: #0d1117;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+        
+        .section-header {
+            padding: 8px 16px;
+            font-size: 12px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        .asks-header {
+            background: #8b2635;
+            color: #ff6b7a;
+        }
+        
+        .bids-header {
+            background: #0d4a2b;
+            color: #56d364;
+        }
+        
+        .orderbook-headers {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 8px;
+            padding: 8px 16px;
+            background: #21262d;
+            font-size: 11px;
+            font-weight: 600;
+            color: #8b949e;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        .orders-rows {
+            min-height: 150px;
+        }
+        
+        .empty-order, .active-order {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 8px;
+            padding: 6px 16px;
+            font-size: 13px;
+            font-family: 'Monaco', 'Consolas', monospace;
+            border-bottom: 1px solid #30363d;
+        }
+        
+        .empty-order {
+            color: #484f58;
+        }
+        
+        .ask-order {
+            color: #ff6b7a;
+        }
+        
+        .bid-order {
+            color: #56d364;
+        }
+        
+        .active-order:hover {
+            background: #21262d;
+            cursor: pointer;
+        }
+        
+        .spread-section {
+            padding: 12px 16px;
+            background: #21262d;
+            border-top: 1px solid #30363d;
+            border-bottom: 1px solid #30363d;
+        }
+        
+        .spread-info {
+            display: flex;
+            justify-content: space-between;
+            font-size: 12px;
+            font-family: 'Monaco', 'Consolas', monospace;
+        }
+        
+        .last-price {
+            color: #8b949e;
+        }
+        
+        .spread {
+            color: #f78166;
+        }
+        
+        .price-up {
+            color: #56d364;
+        }
+        
+        .price-down {
+            color: #ff6b7a;
+        }
+        
+        .price-neutral {
+            color: #8b949e;
+        }
+        
+        .order-placement {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+            margin-bottom: 30px;
+        }
+        
+        .order-form {
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+            padding: 20px;
+        }
+        
+        .order-type-selector, .token-selector, .trade-type-selector {
+            display: flex;
+            margin-bottom: 15px;
+        }
+        
+        .order-type-btn, .token-btn, .trade-type-btn {
+            flex: 1;
+            padding: 10px;
+            border: 1px solid #ddd;
+            background: #f8f9fa;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        
+        .order-type-btn:first-child, .token-btn:first-child, .trade-type-btn:first-child {
+            border-radius: 6px 0 0 6px;
+        }
+        
+        .order-type-btn:last-child, .token-btn:last-child, .trade-type-btn:last-child {
+            border-radius: 0 6px 6px 0;
+        }
+        
+        .order-type-btn.active, .token-btn.active, .trade-type-btn.active {
+            background: #007bff;
+            color: white;
+            border-color: #007bff;
+        }
+        
+        .market-order-info {
+            background: #f8f9fa;
+            border: 1px solid #e0e0e0;
+            border-radius: 6px;
+            padding: 15px;
+            margin-bottom: 15px;
+        }
+        
+        .market-order-info .info-item {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 8px;
+        }
+        
+        .market-order-info .info-item:last-child {
+            margin-bottom: 0;
+            font-weight: bold;
+            border-top: 1px solid #ddd;
+            padding-top: 8px;
+        }
+        
+        .market-prices {
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+            padding: 20px;
+        }
+        
+        .price-display {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+        }
+        
+        .price-item {
+            text-align: center;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 6px;
+        }
+        
+        .price-item h4 {
+            margin-bottom: 5px;
+            color: #666;
+        }
+        
+        .price-item p {
+            font-size: 1.2rem;
+            font-weight: 600;
+            color: #333;
+        }
+        
+        /* 價格圖表樣式 */
+        .price-chart-container {
+            margin-top: 20px;
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            border: 1px solid #e0e0e0;
+        }
+        
+        .chart-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid #e0e0e0;
+        }
+        
+        .chart-title {
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: #333;
+        }
+        
+        .chart-controls {
+            display: flex;
+            gap: 10px;
+        }
+        
+        .time-range-btn {
+            padding: 6px 12px;
+            border: 1px solid #ddd;
+            background: #f8f9fa;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            transition: all 0.3s;
+        }
+        
+        .time-range-btn.active {
+            background: #007bff;
+            color: white;
+            border-color: #007bff;
+        }
+        
+        .time-range-btn:hover {
+            background: #e9ecef;
+        }
+        
+        .time-range-btn.active:hover {
+            background: #0056b3;
+        }
+        
+        .chart-canvas-container {
+            position: relative;
+            height: 300px;
+            width: 100%;
+        }
+        
+        .price-stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+            gap: 15px;
+            margin-top: 15px;
+            padding-top: 15px;
+            border-top: 1px solid #e0e0e0;
+        }
+        
+        .price-stat {
+            text-align: center;
+        }
+        
+        .price-stat-label {
+            font-size: 0.8rem;
+            color: #666;
+            margin-bottom: 4px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        .price-stat-value {
+            font-size: 1rem;
+            font-weight: 600;
+            color: #333;
+        }
+        
+        .price-change-positive {
+            color: #28a745;
+        }
+        
+        .price-change-negative {
+            color: #dc3545;
+        }
+        
+        .orderbook-display {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+            margin-bottom: 30px;
+        }
+        
+        .orderbook-column {
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+            padding: 20px;
+        }
+        
+        .orders-table {
+            margin-top: 15px;
+        }
+        
+        .orders-header {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr 80px;
+            gap: 10px;
+            padding: 10px;
+            background: #f8f9fa;
+            border-radius: 6px;
+            font-weight: 600;
+            color: #666;
+            font-size: 0.9rem;
+        }
+        
+        .orders-list {
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        
+        .order-item {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr 80px;
+            gap: 10px;
+            padding: 8px 10px;
+            border-bottom: 1px solid #f0f0f0;
+            align-items: center;
+        }
+        
+        .order-item:hover {
+            background: #f8f9fa;
+        }
+        
+        .cancel-btn {
+            background: #dc3545;
+            color: white;
+            border: none;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 0.8rem;
+            cursor: pointer;
+        }
+        
+        .cancel-btn:hover {
+            background: #c82333;
+        }
+        
+        .no-orders {
+            text-align: center;
+            color: #666;
+            padding: 20px;
+            font-style: italic;
+        }
+        
+        .my-orders {
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+            padding: 20px;
+        }
+        
+        @media (max-width: 768px) {
+            .order-placement, .orderbook-display {
+                grid-template-columns: 1fr;
+            }
+            
+            .price-display {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🎯 DeFi Risk Market</h1>
+            <p>讓 DeFi 安全風險變成一個可交易資產</p>
+        </div>
+        
+        <!-- 錢包連接區域 -->
+        <div class="wallet-section">
+            <div class="wallet-status">
+                <h2>錢包連接</h2>
+                <button id="connectButton" class="connect-button">
+                    連接 MetaMask 錢包
+                </button>
+                <button id="switchWalletButton" class="switch-button" style="display: none;">
+                    切換錢包
+                </button>
+                <button id="disconnectButton" class="disconnect-button" style="display: none;">
+                    斷開錢包連接
+                </button>
+                <div id="walletInfo" class="wallet-info" style="display: none;">
+                    <div class="info-card">
+                        <h3>錢包地址</h3>
+                        <p id="walletAddress">未連接</p>
+                    </div>
+                    <div class="info-card">
+                        <h3>ETH 餘額</h3>
+                        <p id="ethBalance">0.000 ETH</p>
+                    </div>
+                    <div class="info-card">
+                        <h3>網路</h3>
+                        <p id="networkName">未知</p>
+                    </div>
+                    <div class="info-card">
+                        <h3>YES Token</h3>
+                        <p id="yesBalance">0.000</p>
+                    </div>
+                    <div class="info-card">
+                        <h3>NO Token</h3>
+                        <p id="noBalance">0.000</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 訂單簿區域 -->
+        <div class="orderbook-section">
+            <h2>📊 訂單簿</h2>
+            
+            <!-- 下單區域 -->
+            <div class="order-placement">
+                <div class="order-form">
+                    <h3>📝 下單</h3>
+                    
+                    <!-- 訂單類型選擇器 -->
+                    <div class="order-type-selector">
+                        <button id="buyOrderTypeBtn" class="order-type-btn active">買入訂單</button>
+                        <button id="sellOrderTypeBtn" class="order-type-btn">賣出訂單</button>
+                    </div>
+                    
+                    <!-- Token 選擇器 -->
+                    <div class="token-selector">
+                        <button id="yesTokenBtn" class="token-btn active">YES Token</button>
+                        <button id="noTokenBtn" class="token-btn">NO Token</button>
+                    </div>
+                    
+                    <!-- 交易類型選擇器 (市價單/限價單) -->
+                    <div class="trade-type-selector">
+                        <button id="limitOrderBtn" class="trade-type-btn active">限價單</button>
+                        <button id="marketOrderBtn" class="trade-type-btn">市價單</button>
+                    </div>
+                    
+                    <!-- 價格輸入 (限價單才顯示) -->
+                    <div class="input-group" id="priceInputGroup">
+                        <label for="orderPrice">價格 (ETH per Token)</label>
+                        <input type="number" id="orderPrice" placeholder="0.5" step="0.01" min="0" max="1">
+                    </div>
+                    
+                    <!-- 數量輸入 -->
+                    <div class="input-group">
+                        <label for="orderAmount">數量 (Tokens)</label>
+                        <input type="number" id="orderAmount" placeholder="10" step="0.1" min="0">
+                    </div>
+                    
+                    <!-- 市價單預估信息 -->
+                    <div class="market-order-info" id="marketOrderInfo" style="display: none;">
+                        <div class="info-item">
+                            <span>預估成交價格:</span>
+                            <span id="estimatedPrice">-</span>
+                        </div>
+                        <div class="info-item">
+                            <span>預估成交數量:</span>
+                            <span id="estimatedAmount">-</span>
+                        </div>
+                        <div class="info-item">
+                            <span>預估總成本:</span>
+                            <span id="estimatedTotal">-</span>
+                        </div>
+                    </div>
+                    
+                    <button id="placeOrderBtn" class="buy-button">下單</button>
+                </div>
+                
+                <!-- 市場價格顯示 -->
+                <div class="market-prices">
+                    <h3>📈 市場價格</h3>
+                    <div class="price-display">
+                        <div class="price-item">
+                            <h4>YES Token</h4>
+                            <p id="yesMarketPrice">載入中...</p>
+                        </div>
+                        <div class="price-item">
+                            <h4>NO Token</h4>
+                            <p id="noMarketPrice">載入中...</p>
+                        </div>
+                    </div>
+                    
+                    <!-- YES Token 價格歷史圖表 -->
+                    <div class="price-chart-container">
+                        <div class="chart-header">
+                            <div class="chart-title">📊 YES Token 價格歷史</div>
+                            <div class="chart-controls">
+                                <button class="time-range-btn active" data-range="1h">1小時</button>
+                                <button class="time-range-btn" data-range="6h">6小時</button>
+                                <button class="time-range-btn" data-range="24h">24小時</button>
+                                <button class="time-range-btn" data-range="7d">7天</button>
+                            </div>
+                        </div>
+                        <div class="chart-canvas-container">
+                            <canvas id="priceChart"></canvas>
+                        </div>
+                        <div class="price-stats">
+                            <div class="price-stat">
+                                <div class="price-stat-label">當前價格</div>
+                                <div class="price-stat-value" id="currentPrice">--</div>
+                            </div>
+                            <div class="price-stat">
+                                <div class="price-stat-label">24小時變化</div>
+                                <div class="price-stat-value" id="priceChange24h">--</div>
+                            </div>
+                            <div class="price-stat">
+                                <div class="price-stat-label">24小時高點</div>
+                                <div class="price-stat-value" id="price24hHigh">--</div>
+                            </div>
+                            <div class="price-stat">
+                                <div class="price-stat-label">24小時低點</div>
+                                <div class="price-stat-value" id="price24hLow">--</div>
+                            </div>
+                            <div class="price-stat">
+                                <div class="price-stat-label">成交量</div>
+                                <div class="price-stat-value" id="volume24h">--</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 訂單簿顯示 -->
+            <div class="orderbook-display">
+                <div class="orderbook-column">
+                    <h3>� YES Token 訂單簿</h3>
+                    <div class="orderbook-table">
+                        <div class="asks-section">
+                            <div class="section-header asks-header">
+                                <span>ASKS (賣單)</span>
+                            </div>
+                            <div class="orderbook-headers">
+                                <span>PRICE</span>
+                                <span>SHARES</span>
+                                <span>TOTAL</span>
+                            </div>
+                            <div id="yesAsksList" class="orders-rows asks-rows">
+                                <!-- 5 個空的賣單位置 -->
+                                <div class="empty-order ask-order">
+                                    <span>--</span>
+                                    <span>--</span>
+                                    <span>--</span>
+                                </div>
+                                <div class="empty-order ask-order">
+                                    <span>--</span>
+                                    <span>--</span>
+                                    <span>--</span>
+                                </div>
+                                <div class="empty-order ask-order">
+                                    <span>--</span>
+                                    <span>--</span>
+                                    <span>--</span>
+                                </div>
+                                <div class="empty-order ask-order">
+                                    <span>--</span>
+                                    <span>--</span>
+                                    <span>--</span>
+                                </div>
+                                <div class="empty-order ask-order">
+                                    <span>--</span>
+                                    <span>--</span>
+                                    <span>--</span>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="spread-section">
+                            <div class="spread-info">
+                                <span class="last-price">Last: <span id="yesLastPrice">--</span></span>
+                                <span class="spread">Spread: <span id="yesSpread">--</span></span>
+                            </div>
+                        </div>
+                        
+                        <div class="bids-section">
+                            <div class="orderbook-headers">
+                                <span>PRICE</span>
+                                <span>SHARES</span>
+                                <span>TOTAL</span>
+                            </div>
+                            <div id="yesBidsList" class="orders-rows bids-rows">
+                                <!-- 5 個空的買單位置 -->
+                                <div class="empty-order bid-order">
+                                    <span>--</span>
+                                    <span>--</span>
+                                    <span>--</span>
+                                </div>
+                                <div class="empty-order bid-order">
+                                    <span>--</span>
+                                    <span>--</span>
+                                    <span>--</span>
+                                </div>
+                                <div class="empty-order bid-order">
+                                    <span>--</span>
+                                    <span>--</span>
+                                    <span>--</span>
+                                </div>
+                                <div class="empty-order bid-order">
+                                    <span>--</span>
+                                    <span>--</span>
+                                    <span>--</span>
+                                </div>
+                                <div class="empty-order bid-order">
+                                    <span>--</span>
+                                    <span>--</span>
+                                    <span>--</span>
+                                </div>
+                            </div>
+                            <div class="section-header bids-header">
+                                <span>BIDS (買單)</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="orderbook-column">
+                    <h3>� NO Token 訂單簿</h3>
+                    <div class="orderbook-table">
+                        <div class="asks-section">
+                            <div class="section-header asks-header">
+                                <span>ASKS (賣單)</span>
+                            </div>
+                            <div class="orderbook-headers">
+                                <span>PRICE</span>
+                                <span>SHARES</span>
+                                <span>TOTAL</span>
+                            </div>
+                            <div id="noAsksList" class="orders-rows asks-rows">
+                                <!-- 5 個空的賣單位置 -->
+                                <div class="empty-order ask-order">
+                                    <span>--</span>
+                                    <span>--</span>
+                                    <span>--</span>
+                                </div>
+                                <div class="empty-order ask-order">
+                                    <span>--</span>
+                                    <span>--</span>
+                                    <span>--</span>
+                                </div>
+                                <div class="empty-order ask-order">
+                                    <span>--</span>
+                                    <span>--</span>
+                                    <span>--</span>
+                                </div>
+                                <div class="empty-order ask-order">
+                                    <span>--</span>
+                                    <span>--</span>
+                                    <span>--</span>
+                                </div>
+                                <div class="empty-order ask-order">
+                                    <span>--</span>
+                                    <span>--</span>
+                                    <span>--</span>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="spread-section">
+                            <div class="spread-info">
+                                <span class="last-price">Last: <span id="noLastPrice">--</span></span>
+                                <span class="spread">Spread: <span id="noSpread">--</span></span>
+                            </div>
+                        </div>
+                        
+                        <div class="bids-section">
+                            <div class="orderbook-headers">
+                                <span>PRICE</span>
+                                <span>SHARES</span>
+                                <span>TOTAL</span>
+                            </div>
+                            <div id="noBidsList" class="orders-rows bids-rows">
+                                <!-- 5 個空的買單位置 -->
+                                <div class="empty-order bid-order">
+                                    <span>--</span>
+                                    <span>--</span>
+                                    <span>--</span>
+                                </div>
+                                <div class="empty-order bid-order">
+                                    <span>--</span>
+                                    <span>--</span>
+                                    <span>--</span>
+                                </div>
+                                <div class="empty-order bid-order">
+                                    <span>--</span>
+                                    <span>--</span>
+                                    <span>--</span>
+                                </div>
+                                <div class="empty-order bid-order">
+                                    <span>--</span>
+                                    <span>--</span>
+                                    <span>--</span>
+                                </div>
+                                <div class="empty-order bid-order">
+                                    <span>--</span>
+                                    <span>--</span>
+                                    <span>--</span>
+                                </div>
+                            </div>
+                            <div class="section-header bids-header">
+                                <span>BIDS (買單)</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 我的訂單 -->
+            <div class="my-orders">
+                <h3>📋 我的訂單</h3>
+                <div id="myOrdersList" class="orders-list">
+                    <div class="no-orders">暫無訂單</div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 訊息顯示區域 -->
+        <div id="messageArea"></div>
+    </div>
+    
+    <script type="module" src="/src/main.ts"></script>
+</body>
+</html>
