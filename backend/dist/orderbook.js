@@ -35,89 +35,137 @@ class OrderBook {
     // 嘗試撮合訂單
     matchOrders(newOrder) {
         const matches = [];
-        if (newOrder.orderType === 'buy') {
-            // 新買單與現有賣單撮合
-            const sellOrders = this.db.getActiveOrders(newOrder.tokenType, 'sell');
-            let remainingAmount = parseFloat(newOrder.amount);
-            for (const sellOrder of sellOrders) {
-                if (remainingAmount <= 0)
-                    break;
-                // 檢查是否可以撮合（買單價格 >= 賣單價格）
-                if (parseFloat(newOrder.price) >= parseFloat(sellOrder.price)) {
-                    const matchAmount = Math.min(remainingAmount, parseFloat(sellOrder.amount));
-                    const matchPrice = sellOrder.price; // 使用賣單價格作為成交價
-                    // 創建撮合結果
-                    const match = {
-                        buyOrder: newOrder,
-                        sellOrder,
-                        matchedPrice: matchPrice,
-                        matchedAmount: matchAmount.toString(),
-                        timestamp: Date.now()
-                    };
-                    matches.push(match);
-                    // 記錄到資料庫
-                    this.db.insertMatch(match);
-                    // 更新訂單狀態
-                    remainingAmount -= matchAmount;
-                    const sellOrderRemaining = parseFloat(sellOrder.amount) - matchAmount;
-                    if (sellOrderRemaining <= 0) {
-                        this.db.updateOrder(sellOrder.id, { status: 'matched', amount: '0' });
-                    }
-                    else {
-                        this.db.updateOrder(sellOrder.id, { amount: sellOrderRemaining.toString() });
-                    }
-                }
-            }
-            // 更新新買單的剩餘數量
-            if (remainingAmount <= 0) {
-                this.db.updateOrder(newOrder.id, { status: 'matched', amount: '0' });
-            }
-            else {
-                this.db.updateOrder(newOrder.id, { amount: remainingAmount.toString() });
-            }
+        let remainingAmount = parseFloat(newOrder.amount);
+        // 1. 嘗試 Direct Match（同 tokenType 的對手訂單）
+        remainingAmount = this.tryDirectMatch(newOrder, remainingAmount, matches);
+        // 2. 若為 Buy，嘗試 Minting（另一邊 Buy 且價格加總 ≥ 1）
+        if (newOrder.orderType === 'buy' && remainingAmount > 0) {
+            remainingAmount = this.tryMinting(newOrder, remainingAmount, matches);
+        }
+        // 3. 若為 Sell，嘗試 Merge（另一邊 Sell 且價格加總 ≥ 1）
+        if (newOrder.orderType === 'sell' && remainingAmount > 0) {
+            remainingAmount = this.tryMerge(newOrder, remainingAmount, matches);
+        }
+        // 4. 若仍未完全成交，更新為部分成交或留在 OrderBook
+        if (remainingAmount <= 0) {
+            this.db.updateOrder(newOrder.id, { status: 'matched', amount: '0' });
         }
         else {
-            // 新賣單與現有買單撮合
-            const buyOrders = this.db.getActiveOrders(newOrder.tokenType, 'buy');
-            let remainingAmount = parseFloat(newOrder.amount);
-            for (const buyOrder of buyOrders) {
-                if (remainingAmount <= 0)
-                    break;
-                // 檢查是否可以撮合（買單價格 >= 賣單價格）
-                if (parseFloat(buyOrder.price) >= parseFloat(newOrder.price)) {
-                    const matchAmount = Math.min(remainingAmount, parseFloat(buyOrder.amount));
-                    const matchPrice = newOrder.price; // 使用賣單價格作為成交價
-                    // 創建撮合結果
-                    const match = {
-                        buyOrder,
-                        sellOrder: newOrder,
-                        matchedPrice: matchPrice,
-                        matchedAmount: matchAmount.toString(),
-                        timestamp: Date.now()
-                    };
-                    matches.push(match);
-                    // 記錄到資料庫
-                    this.db.insertMatch(match);
-                    // 更新訂單狀態
-                    remainingAmount -= matchAmount;
-                    const buyOrderRemaining = parseFloat(buyOrder.amount) - matchAmount;
-                    if (buyOrderRemaining <= 0) {
-                        this.db.updateOrder(buyOrder.id, { status: 'matched', amount: '0' });
-                    }
-                    else {
-                        this.db.updateOrder(buyOrder.id, { amount: buyOrderRemaining.toString() });
-                    }
-                }
-            }
-            // 更新新賣單的剩餘數量
-            if (remainingAmount <= 0) {
-                this.db.updateOrder(newOrder.id, { status: 'matched', amount: '0' });
-            }
-            else {
-                this.db.updateOrder(newOrder.id, { amount: remainingAmount.toString() });
-            }
+            this.db.updateOrder(newOrder.id, { amount: remainingAmount.toString() });
         }
         return matches;
+    }
+    // Direct Match（直接撮合）- 同 tokenType 的對手訂單
+    tryDirectMatch(newOrder, remainingAmount, matches) {
+        const oppositeOrderType = newOrder.orderType === 'buy' ? 'sell' : 'buy';
+        const oppositeOrders = this.db.getActiveOrders(newOrder.tokenType, oppositeOrderType);
+        for (const oppositeOrder of oppositeOrders) {
+            if (remainingAmount <= 0)
+                break;
+            // 檢查是否可以撮合（買單價格 >= 賣單價格）
+            const canMatch = newOrder.orderType === 'buy'
+                ? parseFloat(newOrder.price) >= parseFloat(oppositeOrder.price)
+                : parseFloat(oppositeOrder.price) >= parseFloat(newOrder.price);
+            if (canMatch) {
+                const matchAmount = Math.min(remainingAmount, parseFloat(oppositeOrder.amount));
+                // 成交價格使用「對手方」價格（即賣單價格）
+                const matchPrice = newOrder.orderType === 'buy'
+                    ? oppositeOrder.price
+                    : newOrder.price;
+                // 創建撮合結果
+                const match = {
+                    type: 'direct',
+                    buyOrder: newOrder.orderType === 'buy' ? newOrder : oppositeOrder,
+                    sellOrder: newOrder.orderType === 'sell' ? newOrder : oppositeOrder,
+                    matchedPrice: matchPrice,
+                    matchedAmount: matchAmount.toString(),
+                    timestamp: Date.now()
+                };
+                matches.push(match);
+                // 記錄到資料庫
+                this.db.insertMatch(match);
+                // 更新訂單狀態
+                remainingAmount -= matchAmount;
+                const oppositeRemaining = parseFloat(oppositeOrder.amount) - matchAmount;
+                if (oppositeRemaining <= 0) {
+                    this.db.updateOrder(oppositeOrder.id, { status: 'matched', amount: '0' });
+                }
+                else {
+                    this.db.updateOrder(oppositeOrder.id, { amount: oppositeRemaining.toString() });
+                }
+            }
+        }
+        return remainingAmount;
+    }
+    // Minting（鑄造新 share）- 兩筆買單：買 YES + 買 NO，價格加總 ≥ 1
+    tryMinting(newOrder, remainingAmount, matches) {
+        const oppositeTokenType = newOrder.tokenType === 'yes' ? 'no' : 'yes';
+        const oppositeBuyOrders = this.db.getActiveOrders(oppositeTokenType, 'buy');
+        for (const oppositeBuyOrder of oppositeBuyOrders) {
+            if (remainingAmount <= 0)
+                break;
+            // 檢查價格加總是否 ≥ 1
+            const priceSum = parseFloat(newOrder.price) + parseFloat(oppositeBuyOrder.price);
+            if (priceSum >= 1.0) {
+                const matchAmount = Math.min(remainingAmount, parseFloat(oppositeBuyOrder.amount));
+                // 創建撮合結果 - 沒有成交價格（因為是創造新 share）
+                const match = {
+                    type: 'minting',
+                    buyOrder: newOrder.tokenType === 'yes' ? newOrder : oppositeBuyOrder,
+                    sellOrder: newOrder.tokenType === 'no' ? newOrder : oppositeBuyOrder, // 這裡用 sellOrder 來存另一個買單
+                    matchedAmount: matchAmount.toString(),
+                    timestamp: Date.now()
+                };
+                matches.push(match);
+                // 記錄到資料庫
+                this.db.insertMatch(match);
+                // 更新訂單狀態
+                remainingAmount -= matchAmount;
+                const oppositeRemaining = parseFloat(oppositeBuyOrder.amount) - matchAmount;
+                if (oppositeRemaining <= 0) {
+                    this.db.updateOrder(oppositeBuyOrder.id, { status: 'matched', amount: '0' });
+                }
+                else {
+                    this.db.updateOrder(oppositeBuyOrder.id, { amount: oppositeRemaining.toString() });
+                }
+            }
+        }
+        return remainingAmount;
+    }
+    // Merge（銷毀 share）- 兩筆賣單：賣 YES + 賣 NO，價格加總 ≥ 1
+    tryMerge(newOrder, remainingAmount, matches) {
+        const oppositeTokenType = newOrder.tokenType === 'yes' ? 'no' : 'yes';
+        const oppositeSellOrders = this.db.getActiveOrders(oppositeTokenType, 'sell');
+        for (const oppositeSellOrder of oppositeSellOrders) {
+            if (remainingAmount <= 0)
+                break;
+            // 檢查價格加總是否 ≥ 1
+            const priceSum = parseFloat(newOrder.price) + parseFloat(oppositeSellOrder.price);
+            if (priceSum >= 1.0) {
+                const matchAmount = Math.min(remainingAmount, parseFloat(oppositeSellOrder.amount));
+                // 創建撮合結果 - 沒有成交價格（因為是 share 合併）
+                const match = {
+                    type: 'merge',
+                    buyOrder: newOrder.tokenType === 'yes' ? newOrder : oppositeSellOrder, // 這裡用 buyOrder 來存一個賣單
+                    sellOrder: newOrder.tokenType === 'no' ? newOrder : oppositeSellOrder,
+                    matchedAmount: matchAmount.toString(),
+                    timestamp: Date.now()
+                };
+                matches.push(match);
+                // 記錄到資料庫
+                this.db.insertMatch(match);
+                // 更新訂單狀態
+                remainingAmount -= matchAmount;
+                const oppositeRemaining = parseFloat(oppositeSellOrder.amount) - matchAmount;
+                if (oppositeRemaining <= 0) {
+                    this.db.updateOrder(oppositeSellOrder.id, { status: 'matched', amount: '0' });
+                }
+                else {
+                    this.db.updateOrder(oppositeSellOrder.id, { amount: oppositeRemaining.toString() });
+                }
+            }
+        }
+        return remainingAmount;
     }
     // 取消訂單
     cancelOrder(orderId, userAddress) {

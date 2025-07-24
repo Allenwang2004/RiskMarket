@@ -14,9 +14,18 @@ export interface Order {
 
 // 交易匹配結果
 export interface MatchResult {
+  type: 'direct' | 'minting' | 'merge'; // 撮合類型
   buyOrder: Order;
   sellOrder: Order;
-  matchedPrice: string;
+  matchedPrice?: string; // 可選：direct 才有成交價格
+  matchedAmount: string;
+  timestamp: number;
+}
+
+// 撮合配對信息（用於 minting 和 merge）
+export interface MatchPair {
+  yesOrder: Order;
+  noOrder: Order;
   matchedAmount: string;
   timestamp: number;
 }

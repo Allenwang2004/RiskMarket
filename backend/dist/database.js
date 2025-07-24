@@ -37,9 +37,10 @@ class DatabaseManager {
         this.db.exec(`
       CREATE TABLE IF NOT EXISTS matches (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
+        match_type TEXT NOT NULL CHECK (match_type IN ('direct', 'minting', 'merge')),
         buy_order_id TEXT NOT NULL,
         sell_order_id TEXT NOT NULL,
-        matched_price TEXT NOT NULL,
+        matched_price TEXT,
         matched_amount TEXT NOT NULL,
         timestamp INTEGER NOT NULL,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -156,10 +157,10 @@ class DatabaseManager {
     insertMatch(match) {
         const stmt = this.db.prepare(`
       INSERT INTO matches (
-        buy_order_id, sell_order_id, matched_price, matched_amount, timestamp
-      ) VALUES (?, ?, ?, ?, ?)
+        match_type, buy_order_id, sell_order_id, matched_price, matched_amount, timestamp
+      ) VALUES (?, ?, ?, ?, ?, ?)
     `);
-        stmt.run(match.buyOrder.id, match.sellOrder.id, match.matchedPrice, match.matchedAmount, match.timestamp);
+        stmt.run(match.type, match.buyOrder.id, match.sellOrder.id, match.matchedPrice || null, match.matchedAmount, match.timestamp);
     }
     // 獲取交易歷史
     getMatches(limit = 100) {
@@ -194,6 +195,7 @@ class DatabaseManager {
     `);
         const rows = stmt.all(limit);
         return rows.map((row) => ({
+            type: row.match_type,
             buyOrder: {
                 id: row.buy_order_id,
                 userAddress: row.buy_user_address,
